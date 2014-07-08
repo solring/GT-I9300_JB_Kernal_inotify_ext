@@ -49,6 +49,34 @@ static inline void get_seq(__u32 *ts, int *cpu)
 	preempt_enable();
 }
 
+void proc_file_connector(char* name, size_t size, __u8 rw)
+{
+	struct cn_msg *msg;
+	struct proc_event *ev;
+	__u8 buffer[CN_PROC_MSG_SIZE];
+	struct timespec ts;
+
+	if (atomic_read(&proc_event_num_listeners) < 1)
+		return;
+	
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
+	get_seq(&msg->seq, &ev->cpu);
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
+	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
+	
+	/* self define contents */
+	ev->what = PROC_EVENT_FILEACCESS;
+	ev->event_data.fileaccess.size = size;
+	ev->event_data.fileaccess.operation = rw;
+	ev->event_data.fileaccess.name = name;
+	
+	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
+	msg->ack = 0; /* not used */
+	msg->len = sizeof(*ev);
+	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
+}
+
 void proc_fork_connector(struct task_struct *task)
 {
 	struct cn_msg *msg;

@@ -239,6 +239,8 @@ struct fsnotify_event {
 	const unsigned char *file_name;
 	size_t name_len;
 	struct pid *tgid;
+	
+	size_t size;    /* number of bytes read/writen */
 
 #ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS
 	__u32 response;	/* userspace answer to question */
@@ -305,8 +307,8 @@ struct fsnotify_mark {
 
 /* main fsnotify call to send events */
 extern int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
-		    const unsigned char *name, u32 cookie);
-extern int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask);
+		    const unsigned char *name, u32 cookie, size_t size);
+extern int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask, size_t size);
 extern void __fsnotify_inode_delete(struct inode *inode);
 extern void __fsnotify_vfsmount_delete(struct vfsmount *mnt);
 extern u32 fsnotify_get_cookie(void);
@@ -423,7 +425,9 @@ extern void fsnotify_unmount_inodes(struct list_head *list);
 extern struct fsnotify_event *fsnotify_create_event(struct inode *to_tell, __u32 mask,
 						    void *data, int data_is,
 						    const unsigned char *name,
-						    u32 cookie, gfp_t gfp);
+						    u32 cookie, 
+						    size_t size,
+						    gfp_t gfp);
 
 /* fanotify likes to change events after they are on lists... */
 extern struct fsnotify_event *fsnotify_clone_event(struct fsnotify_event *old_event);
@@ -433,7 +437,7 @@ extern int fsnotify_replace_event(struct fsnotify_event_holder *old_holder,
 #else
 
 static inline int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
-			   const unsigned char *name, u32 cookie)
+			   const unsigned char *name, u32 cookie, size_t size)
 {
 	return 0;
 }

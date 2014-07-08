@@ -395,7 +395,7 @@ struct fsnotify_event *fsnotify_clone_event(struct fsnotify_event *old_event)
  */
 struct fsnotify_event *fsnotify_create_event(struct inode *to_tell, __u32 mask, void *data,
 					     int data_type, const unsigned char *name,
-					     u32 cookie, gfp_t gfp)
+					     u32 cookie, size_t size, gfp_t gfp)
 {
 	struct fsnotify_event *event;
 
@@ -417,6 +417,7 @@ struct fsnotify_event *fsnotify_create_event(struct inode *to_tell, __u32 mask, 
 		event->name_len = strlen(event->file_name);
 	}
 
+    
 	event->tgid = get_pid(task_tgid(current));
 	event->sync_cookie = cookie;
 	event->to_tell = to_tell;
@@ -443,6 +444,9 @@ struct fsnotify_event *fsnotify_create_event(struct inode *to_tell, __u32 mask, 
 	}
 
 	event->mask = mask;
+	
+	/* size of read/write */
+	event->size = size;
 
 	return event;
 }
@@ -453,7 +457,7 @@ __init int fsnotify_notification_init(void)
 	fsnotify_event_holder_cachep = KMEM_CACHE(fsnotify_event_holder, SLAB_PANIC);
 
 	q_overflow_event = fsnotify_create_event(NULL, FS_Q_OVERFLOW, NULL,
-						 FSNOTIFY_EVENT_NONE, NULL, 0,
+						 FSNOTIFY_EVENT_NONE, NULL, 0, 0,
 						 GFP_KERNEL);
 	if (!q_overflow_event)
 		panic("unable to allocate fsnotify q_overflow_event\n");

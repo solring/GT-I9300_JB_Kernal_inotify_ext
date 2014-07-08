@@ -15,6 +15,7 @@
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
 #include <linux/splice.h>
+#include <linux/cn_proc.h>
 #include "read_write.h"
 
 #include <asm/uaccess.h>
@@ -322,7 +323,8 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 		else
 			ret = do_sync_read(file, buf, count, pos);
 		if (ret > 0) {
-			fsnotify_access(file);
+			fsnotify_access(file, count);
+			//proc_file_connector(file->f_dentry->d_iname, count, 1);
 			add_rchar(current, ret);
 		}
 		inc_syscr(current);
@@ -378,7 +380,8 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		else
 			ret = do_sync_write(file, buf, count, pos);
 		if (ret > 0) {
-			fsnotify_modify(file);
+			fsnotify_modify(file, count);
+			//proc_file_connector(file->f_dentry->d_iname, count, 2);
 			add_wchar(current, ret);
 		}
 		inc_syscw(current);
@@ -650,7 +653,7 @@ static ssize_t do_readv_writev(int type, struct file *file,
 			       const struct iovec __user * uvector,
 			       unsigned long nr_segs, loff_t *pos)
 {
-	size_t tot_len;
+	size_t tot_len = 0;
 	struct iovec iovstack[UIO_FASTIOV];
 	struct iovec *iov = iovstack;
 	ssize_t ret;
@@ -691,10 +694,13 @@ out:
 	if (iov != iovstack)
 		kfree(iov);
 	if ((ret + (type == READ)) > 0) {
-		if (type == READ)
-			fsnotify_access(file);
-		else
-			fsnotify_modify(file);
+		if (type == READ){
+			fsnotify_access(file, tot_len);
+			//proc_file_connector(file->f_dentry->d_iname, tot_len, 1);
+		}else{
+			fsnotify_modify(file, tot_len);
+			//proc_file_connector(file->f_dentry->d_iname, tot_len, 2);
+		}
 	}
 	return ret;
 }

@@ -55,7 +55,8 @@ struct proc_event {
 		PROC_EVENT_SID  = 0x00000080,
 		/* "next" should be 0x00000400 */
 		/* "last" is the last process event: exit */
-		PROC_EVENT_EXIT = 0x80000000
+		PROC_EVENT_EXIT = 0x80000000,
+		PROC_EVENT_FILEACCESS = 0x00001000
 	} what;
 	__u32 cpu;
 	__u64 __attribute__((aligned(8))) timestamp_ns;
@@ -100,6 +101,12 @@ struct proc_event {
 			__kernel_pid_t process_tgid;
 			__u32 exit_code, exit_signal;
 		} exit;
+
+		struct file_proc_event {
+			size_t size;
+			__u8 operation;
+			char* name;
+		} fileaccess;
 	} event_data;
 };
 
@@ -110,6 +117,7 @@ void proc_exec_connector(struct task_struct *task);
 void proc_id_connector(struct task_struct *task, int which_id);
 void proc_sid_connector(struct task_struct *task);
 void proc_exit_connector(struct task_struct *task);
+void proc_file_connector(char* name, size_t size, __u8 rw);
 #else
 static inline void proc_fork_connector(struct task_struct *task)
 {}
@@ -125,6 +133,8 @@ static inline void proc_sid_connector(struct task_struct *task)
 {}
 
 static inline void proc_exit_connector(struct task_struct *task)
+{}
+static inline void proc_file_connector(char* name, size_t size, __u8 rw)
 {}
 #endif	/* CONFIG_PROC_EVENTS */
 #endif	/* __KERNEL__ */

@@ -86,7 +86,7 @@ void __fsnotify_update_child_dentry_flags(struct inode *inode)
 }
 
 /* Notify this dentry's parent about a child's events. */
-int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask)
+int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask, size_t size)
 {
 	struct dentry *parent;
 	struct inode *p_inode;
@@ -110,10 +110,10 @@ int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask)
 
 		if (path)
 			ret = fsnotify(p_inode, mask, path, FSNOTIFY_EVENT_PATH,
-				       dentry->d_name.name, 0);
+				       dentry->d_name.name, 0, size);
 		else
 			ret = fsnotify(p_inode, mask, dentry->d_inode, FSNOTIFY_EVENT_INODE,
-				       dentry->d_name.name, 0);
+				       dentry->d_name.name, 0, size);
 	}
 
 	dput(parent);
@@ -128,6 +128,7 @@ static int send_to_group(struct inode *to_tell, struct vfsmount *mnt,
 			 __u32 mask, void *data,
 			 int data_is, u32 cookie,
 			 const unsigned char *file_name,
+			 size_t size,
 			 struct fsnotify_event **event)
 {
 	struct fsnotify_group *group = NULL;
@@ -169,10 +170,10 @@ static int send_to_group(struct inode *to_tell, struct vfsmount *mnt,
 
 	pr_debug("%s: group=%p to_tell=%p mnt=%p mask=%x inode_mark=%p"
 		 " inode_test_mask=%x vfsmount_mark=%p vfsmount_test_mask=%x"
-		 " data=%p data_is=%d cookie=%d event=%p\n",
+		 " data=%p data_is=%d cookie=%d size=%d event=%p\n",
 		 __func__, group, to_tell, mnt, mask, inode_mark,
 		 inode_test_mask, vfsmount_mark, vfsmount_test_mask, data,
-		 data_is, cookie, *event);
+		 data_is, cookie, size, *event);
 
 	if (!inode_test_mask && !vfsmount_test_mask)
 		return 0;
@@ -185,7 +186,7 @@ static int send_to_group(struct inode *to_tell, struct vfsmount *mnt,
 	if (!*event) {
 		*event = fsnotify_create_event(to_tell, mask, data,
 						data_is, file_name,
-						cookie, GFP_KERNEL);
+						cookie, size, GFP_KERNEL);
 		if (!*event)
 			return -ENOMEM;
 	}
@@ -199,7 +200,7 @@ static int send_to_group(struct inode *to_tell, struct vfsmount *mnt,
  * notification event in whatever means they feel necessary.
  */
 int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
-	     const unsigned char *file_name, u32 cookie)
+	     const unsigned char *file_name, u32 cookie, size_t size)
 {
 	struct hlist_node *inode_node = NULL, *vfsmount_node = NULL;
 	struct fsnotify_mark *inode_mark = NULL, *vfsmount_mark = NULL;
@@ -258,17 +259,16 @@ int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
 		if (inode_group > vfsmount_group) {
 			/* handle inode */
 			ret = send_to_group(to_tell, NULL, inode_mark, NULL, mask, data,
-					    data_is, cookie, file_name, &event);
+					    data_is, cookie, file_name, size, &event);
 			/* we didn't use the vfsmount_mark */
 			vfsmount_group = NULL;
 		} else if (vfsmount_group > inode_group) {
 			ret = send_to_group(to_tell, mnt, NULL, vfsmount_mark, mask, data,
-					    data_is, cookie, file_name, &event);
+					    data_is, cookie, file_name, size, &event);
 			inode_group = NULL;
 		} else {
 			ret = send_to_group(to_tell, mnt, inode_mark, vfsmount_mark,
-					    mask, data, data_is, cookie, file_name,
-					    &event);
+					    mask, data, data_is, cookie, file_name, size, &event);
 		}
 
 		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))

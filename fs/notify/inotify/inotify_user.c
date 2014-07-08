@@ -198,6 +198,9 @@ static ssize_t copy_event_to_user(struct fsnotify_group *group,
 
 	inotify_event.mask = inotify_mask_to_arg(event->mask);
 	inotify_event.cookie = event->sync_cookie;
+	
+	/* get read/write size */
+	inotify_event.size = event->size;
 
 	/* send the main event */
 	if (copy_to_user(buf, &inotify_event, event_size))
@@ -520,7 +523,7 @@ void inotify_ignored_and_remove_idr(struct fsnotify_mark *fsn_mark,
 	int ret;
 
 	ignored_event = fsnotify_create_event(NULL, FS_IN_IGNORED, NULL,
-					      FSNOTIFY_EVENT_NONE, NULL, 0,
+					      FSNOTIFY_EVENT_NONE, NULL, 0, 0,
 					      GFP_NOFS);
 	if (!ignored_event)
 		return;
